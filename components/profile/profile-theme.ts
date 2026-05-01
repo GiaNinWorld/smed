@@ -1,0 +1,16 @@
+export const profilePalette = {
+  background: '#F7FAFD',
+  hero: '#DDF8E0',
+  panel: '#FFFFFF',
+  ink: '#0D3855',
+  text: '#17202A',
+  muted: '#7F8B99',
+  border: '#C8D0DA',
+  mint: '#A8E3AE',
+  mintDark: '#8EDA99',
+  mintSoft: '#C8F2CE',
+  teal: '#58C4C7',
+  rose: '#F27D9A',
+  amber: '#E9C36A',
+  white: '#FFFFFF',
+};

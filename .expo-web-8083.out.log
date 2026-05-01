@@ -1,0 +1,13 @@
+
+> smed@1.0.0 web
+> expo start --web --port 8083
+
+Starting project at C:\Users\gianl\OneDrive\Documentos\smed
+React Compiler enabled
+Starting Metro Bundler
+Waiting on http://localhost:8083
+Logs for your project will appear below.
+Web node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 87.7% ( 962/1027)
+λ node_modules\expo-router\node\render.js ▓▓▓▓▓▓▓▓▓▓▓▓░░░░ 75.8% ( 893/1026)
+λ Bundled 2042ms node_modules\expo-router\node\render.js (1238 modules)
+Web Bundled 4921ms node_modules\expo-router\entry.js (1235 modules)
