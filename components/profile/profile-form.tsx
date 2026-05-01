@@ -7,18 +7,46 @@ const title = 'Informa\u00e7\u00f5es';
 const birthLabel = 'Data de nascimento';
 
 type ProfileFormProps = {
+  birthDate: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  password: string;
   onCancelPress: () => void;
+  onChangeBirthDate: (value: string) => void;
+  onChangeEmail: (value: string) => void;
+  onChangeFirstName: (value: string) => void;
+  onChangeLastName: (value: string) => void;
+  onChangePassword: (value: string) => void;
   onSavePress: () => void;
 };
 
-export function ProfileForm({ onCancelPress, onSavePress }: ProfileFormProps) {
+export function ProfileForm({
+  birthDate,
+  email,
+  firstName,
+  lastName,
+  onCancelPress,
+  onChangeBirthDate,
+  onChangeEmail,
+  onChangeFirstName,
+  onChangeLastName,
+  onChangePassword,
+  onSavePress,
+  password,
+}: ProfileFormProps) {
   return (
     <View style={styles.panel}>
       <Text style={styles.title}>{title}</Text>
 
       <View style={styles.row}>
-        <ProfileField compact label="Nome" value="Geni" />
-        <ProfileField compact label="Sobrenome" value="Favaro" />
+        <ProfileField compact label="Nome" onChangeText={onChangeFirstName} value={firstName} />
+        <ProfileField
+          compact
+          label="Sobrenome"
+          onChangeText={onChangeLastName}
+          value={lastName}
+        />
       </View>
 
       <View style={styles.stack}>
@@ -26,13 +54,20 @@ export function ProfileForm({ onCancelPress, onSavePress }: ProfileFormProps) {
           autoCapitalize="none"
           keyboardType="email-address"
           label="E-mail"
-          value="geni@gmail.com"
+          onChangeText={onChangeEmail}
+          value={email}
         />
-        <ProfileField label="Senha" secureTextEntry value="12345" />
+        <ProfileField
+          label="Senha"
+          onChangeText={onChangePassword}
+          placeholder="Nova senha"
+          secureTextEntry
+          value={password}
+        />
       </View>
 
       <View style={styles.birthFieldWrap}>
-        <ProfileField label={birthLabel} value="01/08/1820" />
+        <ProfileField label={birthLabel} onChangeText={onChangeBirthDate} value={birthDate} />
       </View>
 
       <View style={styles.actions}>

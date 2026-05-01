@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   SafeAreaView,
@@ -12,8 +13,10 @@ import {
   View,
 } from 'react-native';
 
-type MedicationKind = {
-  id: string;
+import { createMedication, getMedication, MedicationKind, updateMedication } from '@/lib/database';
+
+type MedicationKindOption = {
+  id: MedicationKind;
   icon: 'pill' | 'needle';
   iconBackground: string;
   iconColor: string;
@@ -25,9 +28,34 @@ type ScheduledDose = {
   time: string;
 };
 
+type RepeatMode = 'once' | 'daily' | 'weekdays' | 'custom';
+
+type WeekDayOption = {
+  label: string;
+  shortLabel: string;
+  value: number;
+};
+
 const reminderMinuteOptions = [5, 10, 15, 20, 30];
 
-const medicationKinds: MedicationKind[] = [
+const repeatOptions: { label: string; mode: RepeatMode }[] = [
+  { label: 'Uma vez', mode: 'once' },
+  { label: 'Diariamente', mode: 'daily' },
+  { label: 'Segunda a sexta', mode: 'weekdays' },
+  { label: 'Personalizado', mode: 'custom' },
+];
+
+const weekDayOptions: WeekDayOption[] = [
+  { value: 1, label: 'Segunda-feira', shortLabel: 'Seg' },
+  { value: 2, label: 'Terca-feira', shortLabel: 'Ter' },
+  { value: 3, label: 'Quarta-feira', shortLabel: 'Qua' },
+  { value: 4, label: 'Quinta-feira', shortLabel: 'Qui' },
+  { value: 5, label: 'Sexta-feira', shortLabel: 'Sex' },
+  { value: 6, label: 'Sabado', shortLabel: 'Sab' },
+  { value: 0, label: 'Domingo', shortLabel: 'Dom' },
+];
+
+const medicationKinds: MedicationKindOption[] = [
   {
     id: 'tablet',
     icon: 'pill',
@@ -59,25 +87,75 @@ const medicationKinds: MedicationKind[] = [
 
 export function AddMedicationScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ medicationId?: string; weekday?: string }>();
+  const medicationId = params.medicationId ? Number(params.medicationId) : null;
+  const isEditing = medicationId !== null && !Number.isNaN(medicationId);
+  const selectedWeekday = Number(params.weekday ?? new Date().getDay());
+  const safeSelectedWeekday = Number.isNaN(selectedWeekday) ? new Date().getDay() : selectedWeekday;
   const [step, setStep] = useState<1 | 2>(1);
-  const [selectedKindId, setSelectedKindId] = useState<string | null>(null);
+  const [selectedKindId, setSelectedKindId] = useState<MedicationKind | null>(null);
   const [name, setName] = useState('');
   const [dose, setDose] = useState('');
   const [scheduledDoses, setScheduledDoses] = useState<ScheduledDose[]>([{ id: 1, time: '' }]);
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>('once');
+  const [selectedCustomWeekdays, setSelectedCustomWeekdays] = useState<number[]>([
+    safeSelectedWeekday,
+  ]);
+  const [isRepeatModalVisible, setIsRepeatModalVisible] = useState(false);
   const [isReminderEnabled, setIsReminderEnabled] = useState(false);
   const [selectedReminderMinutes, setSelectedReminderMinutes] = useState(20);
+  const [isSaving, setIsSaving] = useState(false);
 
   const canContinue = Boolean(selectedKindId && name.trim() && dose.trim());
-  const canConclude = scheduledDoses.some((scheduledDose) => scheduledDose.time.length === 5);
+  const canConclude =
+    !isSaving && scheduledDoses.some((scheduledDose) => scheduledDose.time.length === 5);
   const selectedMedicationKind =
     medicationKinds.find((kind) => kind.id === selectedKindId) ?? medicationKinds[0];
+  const selectedRepeatLabel =
+    repeatOptions.find((option) => option.mode === repeatMode)?.label ?? repeatOptions[0].label;
+  const selectedScheduleWeekdays = getScheduleWeekdays(repeatMode, selectedCustomWeekdays, safeSelectedWeekday);
 
-  function closeFlow() {
-    if (router.canGoBack()) {
-      router.back();
+  useEffect(() => {
+    if (!isEditing || medicationId === null) {
       return;
     }
 
+    const editingMedicationId = medicationId;
+    let isMounted = true;
+
+    async function loadMedication() {
+      const medication = await getMedication(editingMedicationId);
+
+      if (!isMounted || !medication) {
+        return;
+      }
+
+      const weekdays = getUniqueWeekdays(medication.schedules);
+      const times = getUniqueTimes(medication.schedules);
+      const reminderSchedule = medication.schedules.find((schedule) => schedule.reminderEnabled);
+
+      setDose(medication.dose);
+      setName(medication.name);
+      setSelectedKindId(medication.kind);
+      setScheduledDoses(
+        times.length > 0
+          ? times.map((time, index) => ({ id: index + 1, time }))
+          : [{ id: 1, time: '' }],
+      );
+      setIsReminderEnabled(Boolean(reminderSchedule));
+      setSelectedReminderMinutes(reminderSchedule?.reminderMinutes ?? 20);
+      setRepeatMode(getMedicationRepeatMode(medication.repeatMode, weekdays, safeSelectedWeekday));
+      setSelectedCustomWeekdays(weekdays.length > 0 ? weekdays : [safeSelectedWeekday]);
+    }
+
+    loadMedication();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isEditing, medicationId, safeSelectedWeekday]);
+
+  function closeFlow() {
     router.replace('/medications');
   }
 
@@ -130,9 +208,63 @@ export function AddMedicationScreen() {
     });
   }
 
-  function conclude() {
-    if (canConclude) {
+  function selectRepeatMode(mode: RepeatMode) {
+    setRepeatMode(mode);
+
+    if (mode !== 'custom') {
+      setIsRepeatModalVisible(false);
+    }
+  }
+
+  function toggleCustomWeekday(weekday: number) {
+    setSelectedCustomWeekdays((currentWeekdays) => {
+      if (currentWeekdays.includes(weekday)) {
+        return currentWeekdays.length === 1
+          ? currentWeekdays
+          : currentWeekdays.filter((currentWeekday) => currentWeekday !== weekday);
+      }
+
+      return [...currentWeekdays, weekday].sort(
+        (firstWeekday, secondWeekday) =>
+          getWeekdayOrder(firstWeekday) - getWeekdayOrder(secondWeekday),
+      );
+    });
+  }
+
+  async function conclude() {
+    if (!canConclude || !selectedKindId) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const validDoses = scheduledDoses.filter((scheduledDose) => scheduledDose.time.length === 5);
+
+      const medicationInput = {
+        dose,
+        kind: selectedKindId,
+        name,
+        repeatMode,
+        schedules: selectedScheduleWeekdays.flatMap((weekday) =>
+          validDoses.map((scheduledDose) => ({
+            reminderEnabled: isReminderEnabled,
+            reminderMinutes: selectedReminderMinutes,
+            time: scheduledDose.time,
+            weekday,
+          })),
+        ),
+      };
+
+      if (isEditing && medicationId !== null) {
+        await updateMedication(medicationId, medicationInput);
+      } else {
+        await createMedication(medicationInput);
+      }
+
       router.replace('/medications');
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -155,7 +287,9 @@ export function AddMedicationScreen() {
           <>
             <View style={styles.content}>
               <Text style={styles.stepText}>1 de 2</Text>
-              <Text style={styles.title}>Adicionar Medicação</Text>
+              <Text style={styles.title}>
+                {isEditing ? 'Editar Medicação' : 'Adicionar Medicação'}
+              </Text>
 
               <View style={styles.kindRow}>
                 {medicationKinds.map((kind) => {
@@ -252,6 +386,19 @@ export function AddMedicationScreen() {
                 </View>
               </View>
 
+              <View style={styles.repeatRow}>
+                <Text style={styles.repeatLabel}>Repetir</Text>
+                <Pressable
+                  accessibilityLabel="Selecionar repeticao"
+                  onPress={() => setIsRepeatModalVisible(true)}
+                  style={styles.repeatButton}>
+                  <Text numberOfLines={1} style={styles.repeatButtonText}>
+                    {selectedRepeatLabel}
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-down" color="#15172E" size={22} />
+                </Pressable>
+              </View>
+
               <View style={styles.scheduleRows}>
                 {scheduledDoses.map((scheduledDose, index) => (
                   <View key={scheduledDose.id} style={styles.scheduleRow}>
@@ -341,11 +488,99 @@ export function AddMedicationScreen() {
                   styles.primaryButtonText,
                   canConclude ? styles.primaryButtonTextEnabled : null,
                 ]}>
-                Concluir
+                {isSaving ? 'Salvando' : isEditing ? 'Salvar' : 'Concluir'}
               </Text>
             </Pressable>
           </>
         )}
+
+        <Modal
+          animationType="fade"
+          onRequestClose={() => setIsRepeatModalVisible(false)}
+          transparent
+          visible={isRepeatModalVisible}>
+          <Pressable
+            accessibilityLabel="Fechar repeticao"
+            onPress={() => setIsRepeatModalVisible(false)}
+            style={styles.modalBackdrop}>
+            <Pressable style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Repetir</Text>
+                <Pressable
+                  accessibilityLabel="Fechar"
+                  onPress={() => setIsRepeatModalVisible(false)}
+                  style={styles.modalCloseButton}>
+                  <MaterialCommunityIcons name="close" color="#15172E" size={20} />
+                </Pressable>
+              </View>
+
+              <View style={styles.repeatOptions}>
+                {repeatOptions.map((option) => {
+                  const isSelected = option.mode === repeatMode;
+
+                  return (
+                    <Pressable
+                      accessibilityLabel={`Selecionar ${option.label}`}
+                      key={option.mode}
+                      onPress={() => selectRepeatMode(option.mode)}
+                      style={[
+                        styles.repeatOption,
+                        isSelected ? styles.selectedRepeatOption : null,
+                      ]}>
+                      <Text
+                        style={[
+                          styles.repeatOptionText,
+                          isSelected ? styles.selectedRepeatOptionText : null,
+                        ]}>
+                        {option.label}
+                      </Text>
+                      {isSelected ? (
+                        <MaterialCommunityIcons name="check" color="#FFFFFF" size={20} />
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {repeatMode === 'custom' ? (
+                <>
+                  <Text style={styles.customDaysTitle}>Dias da semana</Text>
+                  <View style={styles.customDays}>
+                    {weekDayOptions.map((weekday) => {
+                      const isSelected = selectedCustomWeekdays.includes(weekday.value);
+
+                      return (
+                        <Pressable
+                          accessibilityLabel={`Selecionar ${weekday.label}`}
+                          key={weekday.value}
+                          onPress={() => toggleCustomWeekday(weekday.value)}
+                          style={[
+                            styles.customDayButton,
+                            isSelected ? styles.selectedCustomDayButton : null,
+                          ]}>
+                          <Text
+                            style={[
+                              styles.customDayText,
+                              isSelected ? styles.selectedCustomDayText : null,
+                            ]}>
+                            {weekday.shortLabel}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  <Pressable
+                    accessibilityLabel="Concluir selecao de dias"
+                    onPress={() => setIsRepeatModalVisible(false)}
+                    style={styles.modalDoneButton}>
+                    <Text style={styles.modalDoneButtonText}>Concluir</Text>
+                  </Pressable>
+                </>
+              ) : null}
+            </Pressable>
+          </Pressable>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -468,7 +703,7 @@ const styles = StyleSheet.create({
     lineHeight: 23,
   },
   scheduleRows: {
-    marginTop: 28,
+    marginTop: 24,
   },
   scheduleRow: {
     minHeight: 39,
@@ -516,11 +751,45 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     backgroundColor: '#F2F5F6',
   },
+  repeatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 48,
+    marginTop: 18,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: '#F7F9FA',
+  },
+  repeatLabel: {
+    color: '#15172E',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 0,
+    lineHeight: 23,
+  },
+  repeatButton: {
+    maxWidth: 176,
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  repeatButtonText: {
+    flexShrink: 1,
+    color: '#15172E',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 0,
+    lineHeight: 21,
+    textAlign: 'right',
+  },
   reminderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 37,
+    marginTop: 27,
   },
   reminderLabel: {
     color: '#15172E',
@@ -571,6 +840,108 @@ const styles = StyleSheet.create({
   selectedReminderOptionText: {
     color: '#15172E',
   },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    padding: 21,
+    backgroundColor: 'rgba(21, 23, 46, 0.38)',
+  },
+  modalContent: {
+    padding: 18,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    color: '#15172E',
+    fontSize: 18,
+    fontWeight: '900',
+    lineHeight: 23,
+  },
+  modalCloseButton: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 17,
+    backgroundColor: '#F4F7F8',
+  },
+  repeatOptions: {
+    gap: 8,
+  },
+  repeatOption: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#F4F7F8',
+  },
+  selectedRepeatOption: {
+    backgroundColor: '#ADEBB5',
+  },
+  repeatOptionText: {
+    color: '#15172E',
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  selectedRepeatOptionText: {
+    color: '#FFFFFF',
+  },
+  customDaysTitle: {
+    marginTop: 18,
+    color: '#15172E',
+    fontSize: 15,
+    fontWeight: '900',
+    lineHeight: 20,
+  },
+  customDays: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 11,
+  },
+  customDayButton: {
+    width: 52,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 21,
+    backgroundColor: '#F4F7F8',
+  },
+  selectedCustomDayButton: {
+    backgroundColor: '#ADEBB5',
+  },
+  customDayText: {
+    color: '#15172E',
+    fontSize: 14,
+    fontWeight: '900',
+    lineHeight: 18,
+  },
+  selectedCustomDayText: {
+    color: '#FFFFFF',
+  },
+  modalDoneButton: {
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 18,
+    borderRadius: 12,
+    backgroundColor: '#A8E3AE',
+  },
+  modalDoneButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+    lineHeight: 18,
+  },
   primaryButton: {
     height: 47,
     alignItems: 'center',
@@ -591,3 +962,68 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
+
+function getScheduleWeekdays(
+  repeatMode: RepeatMode,
+  selectedCustomWeekdays: number[],
+  selectedWeekday: number,
+) {
+  if (repeatMode === 'daily') {
+    return [0, 1, 2, 3, 4, 5, 6];
+  }
+
+  if (repeatMode === 'weekdays') {
+    return [1, 2, 3, 4, 5];
+  }
+
+  if (repeatMode === 'custom') {
+    return selectedCustomWeekdays.length > 0 ? selectedCustomWeekdays : [selectedWeekday];
+  }
+
+  return [selectedWeekday];
+}
+
+function getWeekdayOrder(weekday: number) {
+  return weekday === 0 ? 7 : weekday;
+}
+
+function getUniqueWeekdays(schedules: { weekday: number }[]) {
+  return Array.from(new Set(schedules.map((schedule) => schedule.weekday))).sort(
+    (firstWeekday, secondWeekday) => getWeekdayOrder(firstWeekday) - getWeekdayOrder(secondWeekday),
+  );
+}
+
+function getUniqueTimes(schedules: { time: string }[]) {
+  return Array.from(new Set(schedules.map((schedule) => schedule.time))).sort();
+}
+
+function getRepeatModeFromWeekdays(weekdays: number[], fallbackWeekday: number): RepeatMode {
+  const orderedWeekdays = weekdays.length > 0 ? weekdays : [fallbackWeekday];
+  const weekdayKey = orderedWeekdays.join(',');
+
+  if (orderedWeekdays.length === 7) {
+    return 'daily';
+  }
+
+  if (weekdayKey === '1,2,3,4,5') {
+    return 'weekdays';
+  }
+
+  if (orderedWeekdays.length === 1 && orderedWeekdays[0] === fallbackWeekday) {
+    return 'once';
+  }
+
+  return 'custom';
+}
+
+function getMedicationRepeatMode(
+  storedRepeatMode: RepeatMode,
+  weekdays: number[],
+  fallbackWeekday: number,
+): RepeatMode {
+  if (storedRepeatMode === 'custom') {
+    return getRepeatModeFromWeekdays(weekdays, fallbackWeekday);
+  }
+
+  return storedRepeatMode;
+}

@@ -1,6 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
+import { createUserAccount } from '@/lib/database';
+
 import { AuthScreenShell } from './auth-screen-shell';
 import { LoginHero } from './login-hero';
 import { SignupForm } from './signup-form';
@@ -13,14 +15,35 @@ export function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function handleBackToLogin() {
-    if (router.canGoBack()) {
-      router.back();
+    router.replace('/');
+  }
+
+  async function handleSignupPress() {
+    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+      setErrorMessage('Preencha todos os campos.');
       return;
     }
 
-    router.replace('/');
+    if (password !== confirmPassword) {
+      setErrorMessage('As senhas não conferem.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMessage('');
+
+    try {
+      await createUserAccount({ email, fullName: name, password });
+      router.replace('/home');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Não foi possível criar a conta.');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -29,12 +52,15 @@ export function SignupScreen() {
       <SignupForm
         confirmPassword={confirmPassword}
         email={email}
+        errorMessage={errorMessage}
+        isSubmitting={isSubmitting}
         name={name}
         onBackToLoginPress={handleBackToLogin}
         onChangeConfirmPassword={setConfirmPassword}
         onChangeEmail={setEmail}
         onChangeName={setName}
         onChangePassword={setPassword}
+        onSignupPress={handleSignupPress}
         password={password}
       />
     </AuthScreenShell>

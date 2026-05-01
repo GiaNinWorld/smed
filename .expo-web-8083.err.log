@@ -8,3 +8,9 @@ Error: Cannot pipe to a closed or destroyed stream
     at respond (C:\Users\gianl\OneDrive\Documentos\smed\node_modules\expo-server\src\vendor\http.ts:138:19)
     at C:\Users\gianl\OneDrive\Documentos\smed\node_modules\expo-server\src\vendor\http.ts:68:13
     at processTicksAndRejections (node:internal/process/task_queues:104:5)
+"shadow*" style props are deprecated. Use "boxShadow".
+"textShadow*" style props are deprecated. Use "textShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+"textShadow*" style props are deprecated. Use "textShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+"textShadow*" style props are deprecated. Use "textShadow".

@@ -1,5 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { loginPalette } from './login-theme';
 
@@ -16,10 +15,6 @@ export function LoginHero({ onBackPress, subtitle = brandSubtitle }: LoginHeroPr
     <View style={styles.hero}>
       <View style={styles.heroGlowRight} />
       <View style={styles.heroGlowLeft} />
-
-      <Pressable accessibilityLabel="Voltar" onPress={onBackPress} style={styles.backButton}>
-        <Ionicons name="arrow-back" color={loginPalette.white} size={24} />
-      </Pressable>
 
       <View style={styles.brandBlock}>
         <Text style={styles.brandTitle}>{brandTitle}</Text>

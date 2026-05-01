@@ -14,6 +14,8 @@ type LoginFormProps = {
   onChangePassword: (value: string) => void;
   onCreateAccountPress: () => void;
   onLoginPress: () => void;
+  errorMessage?: string;
+  isSubmitting?: boolean;
 };
 
 export function LoginForm({
@@ -23,6 +25,8 @@ export function LoginForm({
   onCreateAccountPress,
   onLoginPress,
   password,
+  errorMessage,
+  isSubmitting = false,
 }: LoginFormProps) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
@@ -67,8 +71,13 @@ export function LoginForm({
         <Text style={styles.createAccountText}>{createAccountLabel}</Text>
       </Pressable>
 
-      <Pressable onPress={onLoginPress} style={styles.primaryButton}>
-        <Text style={styles.primaryButtonText}>Entrar</Text>
+      {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+      <Pressable
+        disabled={isSubmitting}
+        onPress={onLoginPress}
+        style={[styles.primaryButton, isSubmitting ? styles.disabledButton : null]}>
+        <Text style={styles.primaryButtonText}>{isSubmitting ? 'Entrando' : 'Entrar'}</Text>
       </Pressable>
 
       <View style={styles.dividerRow}>
@@ -119,10 +128,20 @@ const styles = StyleSheet.create({
     borderRadius: 27,
     backgroundColor: loginPalette.mint,
   },
+  disabledButton: {
+    opacity: 0.58,
+  },
   primaryButtonText: {
     color: loginPalette.white,
     fontSize: 16,
     fontWeight: '800',
+  },
+  errorText: {
+    marginBottom: 12,
+    color: '#E15353',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   dividerRow: {
     flexDirection: 'row',

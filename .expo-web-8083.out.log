@@ -1,13 +1,25 @@
 
 > smed@1.0.0 web
-> expo start --web --port 8083
+> expo start --web --port 8083 --clear
 
 Starting project at C:\Users\gianl\OneDrive\Documentos\smed
 React Compiler enabled
 Starting Metro Bundler
+warning: Bundler cache is empty, rebuilding (this may take a minute)
 Waiting on http://localhost:8083
 Logs for your project will appear below.
-Web node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 87.7% ( 962/1027)
-λ node_modules\expo-router\node\render.js ▓▓▓▓▓▓▓▓▓▓▓▓░░░░ 75.8% ( 893/1026)
-λ Bundled 2042ms node_modules\expo-router\node\render.js (1238 modules)
-Web Bundled 4921ms node_modules\expo-router\entry.js (1235 modules)
+Web node_modules\expo-router\entry.js ▓▓░░░░░░░░░░░░░░ 16.0% ( 4/10)
+λ node_modules\expo-router\node\render.js ░░░░░░░░░░░░░░░░  5.2% (11/49)
+Web node_modules\expo-router\entry.js ▓▓▓▓▓░░░░░░░░░░░ 34.0% ( 9/21)
+λ node_modules\expo-router\node\render.js ▓▓░░░░░░░░░░░░░░ 18.7% (154/356)
+Web node_modules\expo-router\entry.js ▓▓▓▓▓░░░░░░░░░░░ 36.6% (200/361)
+λ node_modules\expo-router\node\render.js ▓▓▓▓▓▓▓▓▓░░░░░░░ 61.8% (540/710)
+Web node_modules\expo-router\entry.js ▓▓▓▓▓▓▓░░░░░░░░░ 46.9% (373/556)
+λ node_modules\expo-router\node\render.js ▓▓▓▓▓▓▓▓▓▓░░░░░░ 68.7% (815/983)
+Web node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 69.9% (738/902)
+λ node_modules\expo-router\node\render.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 90.0% (1039/1095)
+λ Bundled 18900ms node_modules\expo-router\node\render.js (1278 modules)
+Web node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 98.2% (1236/1247)
+λ node_modules\expo-router\node\render.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1278/1278)
+Web node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 98.6% (1243/1253)
+Web Bundled 24451ms node_modules\expo-router\entry.js (1254 modules)

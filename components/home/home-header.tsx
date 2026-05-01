@@ -5,15 +5,16 @@ import { homePalette } from './home-theme';
 import { UserAvatar } from './user-avatar';
 
 type HomeHeaderProps = {
+  name?: string;
   onSettingsPress?: () => void;
 };
 
-export function HomeHeader({ onSettingsPress }: HomeHeaderProps) {
+export function HomeHeader({ name = 'Usuário', onSettingsPress }: HomeHeaderProps) {
   return (
     <View style={styles.header}>
       <View style={styles.profile}>
         <UserAvatar size={44} />
-        <Text style={styles.name}>Geni</Text>
+        <Text style={styles.name}>{name}</Text>
       </View>
 
       <Pressable

@@ -21,6 +21,7 @@ export default function RootLayout() {
         <Stack.Screen name="medications" options={{ headerShown: false }} />
         <Stack.Screen name="add-medication" options={{ headerShown: false }} />
         <Stack.Screen name="edit-account" options={{ headerShown: false }} />
+        <Stack.Screen name="create-member" options={{ headerShown: false }} />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />

@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Modal,
@@ -13,15 +14,22 @@ import {
   View,
 } from 'react-native';
 
+import {
+  deleteMedication,
+  listMedicationsByWeekday,
+  MedicationKind,
+  MedicationListItem,
+} from '@/lib/database';
+
 type Medication = {
-  id: string;
-  name: string;
-  amount: string;
+  id: number;
+  dose: string;
   hour: string;
+  kind: MedicationKind;
+  name: string;
   icon: 'needle' | 'pill';
   iconBackground: string;
   iconColor: string;
-  alert?: string;
 };
 
 type WeekDay = {
@@ -37,46 +45,6 @@ const weekDays: WeekDay[] = [
   { value: 5, label: 'Sexta-feira' },
   { value: 6, label: 'Sabado' },
   { value: 0, label: 'Domingo' },
-];
-
-const initialMedications: Medication[] = [
-  {
-    id: 'boldenona',
-    name: 'Boldenona',
-    amount: '4 ampolas',
-    hour: '8:00',
-    icon: 'needle',
-    iconBackground: '#E9FAFB',
-    iconColor: '#76D2DE',
-  },
-  {
-    id: 'omega-3',
-    name: 'Omega 3',
-    amount: '10 pilulas',
-    hour: '8:00',
-    icon: 'pill',
-    iconBackground: '#FFF2C1',
-    iconColor: '#FFC33E',
-  },
-  {
-    id: 'acetato',
-    name: 'Acetato de trembolona',
-    amount: '2 ampolas',
-    hour: '14:00',
-    icon: 'needle',
-    iconBackground: '#E9FAFB',
-    iconColor: '#76D2DE',
-    alert: 'Voce tem 2 ampolas restantes',
-  },
-  {
-    id: 'deca',
-    name: 'Deca',
-    amount: '5 ampolas',
-    hour: '14:00',
-    icon: 'needle',
-    iconBackground: '#E9FAFB',
-    iconColor: '#76D2DE',
-  },
 ];
 
 type SwipeableMedicationCardProps = {
@@ -178,7 +146,7 @@ function SwipeableMedicationCard({
               <Text numberOfLines={1} style={styles.medicationName}>
                 {medication.name}
               </Text>
-              <Text style={styles.amount}>{medication.amount}</Text>
+              <Text style={styles.amount}>{medication.dose}</Text>
             </View>
 
             {isSelected ? (
@@ -191,15 +159,6 @@ function SwipeableMedicationCard({
             ) : null}
           </View>
 
-          {medication.alert ? (
-            <View style={styles.alert}>
-              <MaterialCommunityIcons name="alert-circle" color="#FF6843" size={18} />
-              <Text numberOfLines={1} style={styles.alertText}>
-                {medication.alert}
-              </Text>
-              <MaterialCommunityIcons name="close" color="#C9D0D6" size={16} />
-            </View>
-          ) : null}
         </Pressable>
       </Animated.View>
     </View>
@@ -211,8 +170,19 @@ export function MedicationsScreen() {
   const todayWeekDayValue = new Date().getDay();
   const [selectedDayValue, setSelectedDayValue] = useState(todayWeekDayValue);
   const [isDayModalVisible, setIsDayModalVisible] = useState(false);
-  const [medicationItems, setMedicationItems] = useState(initialMedications);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [medicationItems, setMedicationItems] = useState<Medication[]>([]);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  const loadMedications = useCallback(async () => {
+    const items = await listMedicationsByWeekday(selectedDayValue);
+    setMedicationItems(items.map(mapMedicationListItem));
+  }, [selectedDayValue]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadMedications();
+    }, [loadMedications]),
+  );
 
   const orderedWeekDays = useMemo(() => {
     const todayIndex = weekDays.findIndex((day) => day.value === todayWeekDayValue);
@@ -233,15 +203,10 @@ export function MedicationsScreen() {
   }, {});
 
   function goBack() {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-
     router.replace('/home');
   }
 
-  function toggleMedication(id: string) {
+  function toggleMedication(id: number) {
     setSelectedIds((currentIds) =>
       currentIds.includes(id)
         ? currentIds.filter((currentId) => currentId !== id)
@@ -249,8 +214,9 @@ export function MedicationsScreen() {
     );
   }
 
-  function removeMedication(id: string) {
-    setMedicationItems((currentItems) => currentItems.filter((item) => item.id !== id));
+  async function removeMedication(id: number) {
+    await deleteMedication(id);
+    await loadMedications();
     setSelectedIds((currentIds) => currentIds.filter((currentId) => currentId !== id));
   }
 
@@ -298,14 +264,41 @@ export function MedicationsScreen() {
               </View>
             </View>
           ))}
+          {medicationItems.length === 0 ? (
+            <Text style={styles.emptyText}>Nenhum medicamento agendado.</Text>
+          ) : null}
         </ScrollView>
 
-        <Pressable
-          accessibilityLabel="Adicionar medicamento"
-          onPress={() => router.push('/add-medication')}
-          style={styles.addButton}>
-          <MaterialCommunityIcons name="plus" color="#FFFFFF" size={30} />
-        </Pressable>
+        <View style={styles.actionButtons}>
+          {selectedIds.length === 1 ? (
+            <Pressable
+              accessibilityLabel="Editar medicamento"
+              onPress={() =>
+                router.push({
+                  pathname: '/add-medication',
+                  params: {
+                    medicationId: String(selectedIds[0]),
+                    weekday: String(selectedDayValue),
+                  },
+                })
+              }
+              style={styles.editButton}>
+              <MaterialCommunityIcons name="pencil" color="#15172E" size={22} />
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            accessibilityLabel="Adicionar medicamento"
+            onPress={() =>
+              router.push({
+                pathname: '/add-medication',
+                params: { weekday: String(selectedDayValue) },
+              })
+            }
+            style={styles.addButton}>
+            <MaterialCommunityIcons name="plus" color="#FFFFFF" size={30} />
+          </Pressable>
+        </View>
 
         <Modal
           animationType="fade"
@@ -490,27 +483,33 @@ const styles = StyleSheet.create({
   checkIcon: {
     marginLeft: 8,
   },
-  alert: {
-    height: 31,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 13,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: '#F4F7F8',
+  emptyText: {
+    marginTop: 48,
+    color: '#9397A4',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 20,
+    textAlign: 'center',
   },
-  alertText: {
-    flex: 1,
-    color: '#25273A',
-    fontSize: 13,
-    fontWeight: '500',
-    lineHeight: 17,
-  },
-  addButton: {
+  actionButtons: {
     position: 'absolute',
     right: 21,
     bottom: 27,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  editButton: {
+    width: 39,
+    height: 39,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#DDE4E7',
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+  },
+  addButton: {
     width: 39,
     height: 39,
     alignItems: 'center',
@@ -574,3 +573,42 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
+
+function mapMedicationListItem(item: MedicationListItem): Medication {
+  const style = getMedicationKindStyle(item.kind);
+
+  return {
+    dose: item.dose,
+    hour: item.hour,
+    icon: style.icon,
+    iconBackground: style.iconBackground,
+    iconColor: style.iconColor,
+    id: item.id,
+    kind: item.kind,
+    name: item.name,
+  };
+}
+
+function getMedicationKindStyle(kind: MedicationKind) {
+  if (kind === 'capsule') {
+    return {
+      icon: 'pill' as const,
+      iconBackground: '#FFF2C1',
+      iconColor: '#FFC33E',
+    };
+  }
+
+  if (kind === 'tablet') {
+    return {
+      icon: 'pill' as const,
+      iconBackground: '#F2F5F6',
+      iconColor: '#D9D9D9',
+    };
+  }
+
+  return {
+    icon: 'needle' as const,
+    iconBackground: '#E9FAFB',
+    iconColor: kind === 'syringe' ? '#C7BDA2' : '#76D2DE',
+  };
+}

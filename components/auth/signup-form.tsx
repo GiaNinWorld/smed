@@ -16,6 +16,9 @@ type SignupFormProps = {
   onChangePassword: (value: string) => void;
   onChangeConfirmPassword: (value: string) => void;
   onBackToLoginPress: () => void;
+  onSignupPress: () => void;
+  errorMessage?: string;
+  isSubmitting?: boolean;
 };
 
 export function SignupForm({
@@ -27,7 +30,10 @@ export function SignupForm({
   onChangeEmail,
   onChangeName,
   onChangePassword,
+  onSignupPress,
   password,
+  errorMessage,
+  isSubmitting = false,
 }: SignupFormProps) {
   return (
     <View style={styles.formPanel}>
@@ -80,8 +86,15 @@ export function SignupForm({
         value={confirmPassword}
       />
 
-      <Pressable style={styles.primaryButton}>
-        <Text style={styles.primaryButtonText}>Cadastrar</Text>
+      {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+      <Pressable
+        disabled={isSubmitting}
+        onPress={onSignupPress}
+        style={[styles.primaryButton, isSubmitting ? styles.disabledButton : null]}>
+        <Text style={styles.primaryButtonText}>
+          {isSubmitting ? 'Cadastrando' : 'Cadastrar'}
+        </Text>
       </Pressable>
 
       <Pressable onPress={onBackToLoginPress} style={styles.backToLoginButton}>
@@ -115,10 +128,20 @@ const styles = StyleSheet.create({
     borderRadius: 27,
     backgroundColor: loginPalette.mint,
   },
+  disabledButton: {
+    opacity: 0.58,
+  },
   primaryButtonText: {
     color: loginPalette.white,
     fontSize: 16,
     fontWeight: '800',
+  },
+  errorText: {
+    marginTop: 2,
+    color: '#E15353',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   backToLoginButton: {
     alignSelf: 'center',
