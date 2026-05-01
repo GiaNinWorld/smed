@@ -1,5 +1,10 @@
 import * as SQLite from 'expo-sqlite';
 
+import {
+  cancelMedicationNotifications,
+  scheduleMedicationNotifications,
+} from './notifications';
+
 export type AvatarVariant = 'pink' | 'blue';
 
 export type CurrentUser = {
@@ -630,6 +635,8 @@ export async function createMedication(input: MedicationInput) {
     throw new Error('Conta principal não encontrada.');
   }
 
+  let newMedicationId = 0;
+
   await db.withTransactionAsync(async () => {
     const result = await db.runAsync(
       `
@@ -643,6 +650,8 @@ export async function createMedication(input: MedicationInput) {
       repeatMode,
     );
 
+    newMedicationId = result.lastInsertRowId;
+
     for (const schedule of input.schedules) {
       await db.runAsync(
         `
@@ -650,7 +659,7 @@ export async function createMedication(input: MedicationInput) {
             (medication_id, weekday, time, reminder_enabled, reminder_minutes)
           VALUES (?, ?, ?, ?, ?)
         `,
-        result.lastInsertRowId,
+        newMedicationId,
         normalizeWeekday(schedule.weekday),
         schedule.time,
         schedule.reminderEnabled ? 1 : 0,
@@ -658,6 +667,11 @@ export async function createMedication(input: MedicationInput) {
       );
     }
   });
+
+  // Schedule OS notifications after the DB transaction — non-fatal if permissions are denied
+  if (newMedicationId > 0) {
+    await scheduleMedicationNotifications(newMedicationId, input);
+  }
 }
 
 export async function getMedication(id: number): Promise<MedicationDetails | null> {
@@ -726,6 +740,9 @@ export async function updateMedication(id: number, input: MedicationInput) {
     throw new Error('MedicaÃ§Ã£o nÃ£o encontrada.');
   }
 
+  // Cancel existing notifications before updating — they will be rescheduled below
+  await cancelMedicationNotifications(id);
+
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `
@@ -757,6 +774,9 @@ export async function updateMedication(id: number, input: MedicationInput) {
       );
     }
   });
+
+  // Reschedule with the updated settings
+  await scheduleMedicationNotifications(id, input);
 }
 
 export async function deleteMedication(id: number) {
@@ -774,6 +794,9 @@ export async function deleteMedication(id: number) {
     id,
     userId,
   );
+
+  // Cancel reminders after deletion — fire-and-forget, non-fatal
+  await cancelMedicationNotifications(id);
 }
 
 async function requireCurrentUserId() {

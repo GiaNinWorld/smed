@@ -39,7 +39,18 @@
           }
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": {
+            "name": "Lembretes de Medicamentos",
+            "importance": "high",
+            "sound": true,
+            "vibrationPattern": [0, 250, 250, 250]
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

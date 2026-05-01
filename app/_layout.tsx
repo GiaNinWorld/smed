@@ -4,6 +4,12 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { setupNotifications } from '@/lib/notifications';
+
+// Configure Android notification channel and foreground handler once at app startup.
+// Why: setNotificationHandler and setNotificationChannelAsync are idempotent but
+// must be called before the first notification fires.
+setupNotifications();
 
 export const unstable_settings = {
   anchor: 'index',

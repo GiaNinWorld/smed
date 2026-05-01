@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { authenticateUser, getCurrentUser } from '@/lib/database';
+import { requestNotificationPermissions } from '@/lib/notifications';
 
 import { AuthScreenShell } from './auth-screen-shell';
 import { LoginForm } from './login-form';
@@ -43,6 +44,9 @@ export function LoginScreen() {
 
     try {
       await authenticateUser(email, password);
+      // Request notification permission after login — user has context at this point.
+      // Non-blocking: navigation proceeds regardless of permission outcome.
+      await requestNotificationPermissions();
       router.replace('/home');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Não foi possível entrar.');
