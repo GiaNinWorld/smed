@@ -19,7 +19,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "senior.med"
     },
     "web": {
       "output": "static",
@@ -47,7 +48,12 @@
             "name": "Lembretes de Medicamentos",
             "importance": "high",
             "sound": true,
-            "vibrationPattern": [0, 250, 250, 250]
+            "vibrationPattern": [
+              0,
+              250,
+              250,
+              250
+            ]
           }
         }
       ]
@@ -55,6 +61,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1dcc2eb8-babe-4494-a9af-aac247dc456b"
+      }
     }
   }
 }
